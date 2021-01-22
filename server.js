@@ -8,7 +8,7 @@ mongoose.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 mongoose.Promise = Promise;
 
 // Mongoose models
-const Recipe = mongoose.model('Recipe', {
+const Recipe = new mongoose.model('Recipe', {
   meal: {
     type: String,
     required: true,
@@ -19,17 +19,16 @@ const Recipe = mongoose.model('Recipe', {
     required: true,
   },
   ingredients: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ingredients'
+    type: Array,
   }
 });
 
-const Ingredients = mongoose.model('Ingredients', {
-  ingredients: {
-    type: String,
-    required: true,
-  }
-});
+// const Ingredients = new mongoose.model('Ingredients', {
+//   name: {
+//     type: String,
+//     required: true,
+//   }
+// });
 
 // Populate/Seed database 
 if (process.env.RESET_DATABASE) {
@@ -37,12 +36,13 @@ if (process.env.RESET_DATABASE) {
     await Recipe.deleteMany({});
     await Ingredients.deleteMany({});
 
-    recipes.filter(recipe => recipe.ingredients === ingredients.ingredients).forEach(async (recipe) => {
-      new Recipe({}).save();
+    recipes.forEach(recipe => {
+      new Recipe(recipe).save();
     });
   }
   seedDatabase();
 }
+
 
 //   PORT=9000 npm start
 const port = process.env.PORT || 8080
@@ -72,12 +72,49 @@ app.post('/recipes', async (req, res) => {
 
 // Endpoint to see the list with all recipes - GET request
 app.get('/recipes', async (req, res) => {
-  const recipes = await new Recipe;
-  res.status(200).json(recipes);
+  try {
+    const recipes = await Recipe.find(req.query);
+    if (recipes) {
+      return res.status(200).json(recipes);
+    } else {
+      // Error handling
+      res.status(404).json({ error: 'Data not found' })
+    }
+  } catch (err) {
+    res.status(400).json(error);
+  }
 });
 
-// Endpoint to see all ingredients - GET request
+// Endpoint to see that particular meal - GET request
+app.get('/recipes/:_id', async (req, res) => {
+  try {
+    const { _id } = req.params;
+    const recipe = await Recipe.findOne({ _id: _id });
+    if (recipe) {
+      res.json(recipe);
+    } else {
+      // Error handling
+      res.status(404).json({ error: 'Recipe not found.' })
+    }
+  } catch (err) {
+    res.status(400).json(err);
+  }
+});
 
+// // Endpoint to see all ingredients - GET request
+// app.get('/ingredients', async (req, res) => {
+//   try {
+//     const ingredients = await Ingredients.find(req.query).sort({ ingredients: 'asc' });
+//     if (ingredients) {
+//       res.json(ingredients);
+//     } else {
+//       // Error handling
+//       res.status(404).json({ error: 'Ingredients not found' });
+//     }
+//   } catch (err) {
+//     res.status(400).json(error);
+//   }
+// });
 
 // Middleware to handle server connection errors
 app.use((req, res, next) => {
@@ -95,4 +132,4 @@ app.use((req, res, next) => {
 // Start the server
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`)
-})
+});
